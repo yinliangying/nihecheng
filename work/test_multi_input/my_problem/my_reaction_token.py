@@ -42,19 +42,48 @@ FLAGS = tf.flags.FLAGS
 # End-of-sentence marker.
 EOS = text_encoder.EOS_ID
 
+class VocabType(object):
+  """Available text vocabularies."""
+  SUBWORD = "subwords"
+  TOKEN = "tokens"
 
+
+"""
+@registry.register_hparams
+def transformer_sfeats_hparams():
+  # define initial transformer hparams here
+  hp = transformer.transformer_base()
+  #hp = transformer.transformer_big()
+
+  # feature vector size setting
+  # the order of the features is the same
+  # as in the source feature file. All
+  # sizes are separated by ':'
+  hp.add_hparam("source_feature_embedding_sizes", "16:56:8")
+  # set encoder hidden size
+  ehs = sum([int(size) for size in hp.source_feature_embedding_sizes.split(':')])
+  ehs += hp.hidden_size
+  hp.add_hparam("enc_hidden_size", ehs)
+  return hp
+"""
 
 @registry.register_problem
-class MyReactionToken(translate.Text2TextProblem):
+class MyReactionToken(text_problems.Text2TextProblem):
     """Problem spec for translation with source features."""
 
     @property
+    def is_generate_per_split(self):
+        # generate_data will shard the data into TRAIN and EVAL for us.
+        return True
+
+
+    @property
     def approx_vocab_size(self):
-        return 2 ** 15
+        return 2 ** 9
 
     @property
     def vocab_filename(self):
-        return "vocab.enfr.%d" % self.approx_vocab_size
+        return "vocab.token"
 
     @property
     def sfeat_delimiter(self):
@@ -69,7 +98,13 @@ class MyReactionToken(translate.Text2TextProblem):
         all other features and its vector size must
         be set in hparams (source_feature_embedding_sizes).
         """
-        return True
+        return False
+
+    @property
+    def oov_token(self):
+        """Out of vocabulary token. Only for VocabType.TOKEN."""
+        return "<UNK>"
+
 
     @property
     def vocab_type(self):
@@ -90,7 +125,7 @@ class MyReactionToken(translate.Text2TextProblem):
         Returns:
           VocabType constant
         """
-        return VocabType.SUBWORD
+        return VocabType.TOKEN
 
     def vocab_sfeat_filenames(self, f_id):
         r"""
@@ -99,77 +134,40 @@ class MyReactionToken(translate.Text2TextProblem):
         One vocab per feature type"""
         return "vocab.enfr.sfeat.%d" % f_id
 
-    def vocab_data_files(self):
-        return _ENFR_TRAIN_DATA
-
-    def source_data_files(self, dataset_split):
-        train = dataset_split == problem.DatasetSplit.TRAIN
-        datasets = _ENFR_TRAIN_DATA if train else _ENFR_DEV_DATA
-        return datasets
-
 
     def generate_samples(self, data_dir, tmp_dir, dataset_split):
-        datasets = self.source_data_files(dataset_split)
-        tag = "train" if dataset_split == problem.DatasetSplit.TRAIN else "dev"
-        # create shared vocabulary
-        if self.vocab_type == "subwords":
-            data_path = translate.compile_data(tmp_dir, datasets, "%s-compiled-%s" % (self.name, tag))
-            self.get_or_create_vocab(data_dir, tmp_dir)
-            sample_iterator = text_problems.text2text_txt_iterator(data_path + ".lang1",
-                                                                   data_path + ".lang2")
-        elif self.vocab_type == "tokens":
-            sample_iterator = super().generate_samples(data_dir, tmp_dir, dataset_split)
-        else:
+
+        if self.vocab_type != "tokens":
             raise ValueError("VocabType not supported")
-        # create source feature vocabularies
-        data_path = self.compile_sfeat_data(tmp_dir, datasets, "%s-compiled-%s" % (self.name, tag))
-        self.create_src_feature_vocabs(data_dir, tmp_dir)
-        sfeat_iterator = text_problems.txt_line_iterator(data_path + ".sfeat")
 
-        def _generate(sample_iterator, sfeat_iterator):
-            for sample in sample_iterator:
-                sample["sfeats"] = next(sfeat_iterator)
-                """
-                sample:{'inputs': "For the second phase of the trials we just had different sizes , small , medium , large and extra-large . It 's true .", 'targets': "Pour la seconde phase des essais nous avions simplement différentes tailles , petit , moyen , grand et extra-large C' est vrai .", 'sfeats': 'IN|for DT|the JJ|second NN|phase IN|of DT|the NNS|trial PP|we RB|just VHD|have JJ|different NNS|size ,|, JJ|small ,|, JJ|medium ,|, JJ|large CC|and JJ|<unknown> SENT|. PP|it VBZ|be JJ|true SENT|.'}
-        
-                """
-                yield sample
+        if dataset_split==dataset_split == problem.DatasetSplit.TRAIN:
+            in_file_name="train_sources"
+            out_file_name="train_targets"
+            feature_file_name="train_features"
 
-        return _generate(sample_iterator, sfeat_iterator)
+        else:#验证集
+            in_file_name="train_sources"
+            out_file_name="train_targets"
+            feature_file_name="train_features"
+        in_file = os.path.join(tmp_dir,in_file_name)
+        out_file = os.path.join(tmp_dir, out_file_name)
+        feature_file = os.path.join(tmp_dir,feature_file_name)
+        in_fp=open(in_file)
+        out_fp = open(out_file)
+        feature_fp = open(feature_file)
+        in_list=in_fp.readlines()
+        out_list=out_fp.readlines()
+        feature_list=feature_fp.readlines()
 
-    def get_or_create_vocab(self, data_dir, tmp_dir, force_get=False, file_byte_budget=1e6):
-        r"""Generate shared inputs and targets vocabulary"""
-        sources = self.vocab_data_files()[0][1]
-        vocab_filepath = os.path.join(data_dir, self.vocab_filename)
-        if os.path.isfile(vocab_filepath):
-            tf.logging.info("Found vocab file: %s", self.vocab_filename)
-            return SubwordTextEncoder(vocab_filepath)
-
-        tf.logging.info("Generating vocab from: %s", str(sources))
-
-        def _generate(tmp_dir, sources):
-            for source in sources:
-                filepath = os.path.join(tmp_dir, source)
-                with tf.gfile.GFile(filepath, mode="r") as source_file:
-                    file_byte_budget_ = file_byte_budget
-                    counter = 0
-                    countermax = int(source_file.size() / file_byte_budget_ / 2)
-                    for line in source_file:
-                        if counter < countermax:
-                            counter += 1
-                        else:
-                            if file_byte_budget_ <= 0:
-                                break
-                            line = line.strip()
-                            file_byte_budget_ -= len(line)
-                            counter = 0
-                            yield line
-
-        generator = _generate(tmp_dir, sources)
-        vocab = SubwordTextEncoder.build_from_generator(
-            generator, self.approx_vocab_size)
-        vocab.store_to_file(vocab_filepath)
-        return vocab
+        for line1, line2,line3 in zip(in_list, out_list,feature_list):
+            input_line=" ".join(line1.replace("\n", " %s " % EOS).split())
+            targets_line= " ".join(line2.replace("\n", " %s " % EOS).split())
+            feature_line = " ".join(line3.replace("\n", " %s " % EOS).split())
+            yield {
+              "inputs": line1,
+              "targets": line2,
+              "sfeats":line3
+            }
 
     def create_src_feature_vocabs(self, data_dir, tmp_dir):
         r"""
@@ -323,7 +321,6 @@ class MyReactionToken(translate.Text2TextProblem):
         feat_encoders = []
         i = 0
         current_path = data_dir + '/' + self.vocab_sfeat_filenames(i)
-
         if not os.path.isfile(current_path):
             self.create_src_feature_vocabs(data_dir, tmp_dir)
 
@@ -414,140 +411,4 @@ class SubwordTextEncoder(text_encoder.SubwordTextEncoder):
         return " ".join(self._subtoken_ids_to_tokens(subtokens))
 
 
-@registry.register_symbol_modality("sfeature")
-class SFeatureSymbolModality(modalities.SymbolModality):
-    def __init__(self, model_hparams, feat_hp=None):
-        self._model_hparams = model_hparams
-        self._vocab_size = feat_hp['vocab_size']
-        self.f_number = feat_hp['f_number']
-        try:
-            self.sfeat_size = int(model_hparams.get('source_feature_embedding_sizes').split(':')[self.f_number])
-        except IndexError:
-            raise IndexError("Source feature size not provided as hyper-parameter")
-
-    @property
-    def name(self):
-        return "symbol_modality_sfeature_%d_%d_%d" % (self._vocab_size, self.sfeat_size, self.f_number)
-
-    def bottom(self, x):
-        while len(x.get_shape()) < 4:
-            x = tf.expand_dims(x, axis=-1)
-        return self.bottom_sfeats(x)
-
-    def bottom_sfeats(self, x, reuse=None):
-        name = "src_feat.%s" % self.f_number
-        with tf.variable_scope(name, reuse):
-            # Squeeze out the channels dimension.
-            x = tf.squeeze(x, axis=3)
-            var = self._get_weights(hidden_dim=self.sfeat_size)
-            x = common_layers.dropout_no_scaling(
-                x, 1.0 - self._model_hparams.symbol_dropout)
-            ret = common_layers.gather(var, x)
-            if self._model_hparams.multiply_embedding_mode == "sqrt_depth":
-                ret *= self._body_input_depth ** 0.5
-            ret *= tf.expand_dims(tf.to_float(tf.not_equal(x, 0)), -1)
-            return ret
-
-
-@registry.register_model
-class TransformerSrcFeatures(transformer.Transformer):
-    """Transformer model with source features"""
-
-    def sfeat_size(self, f_id):
-        """source feature vector dimension"""
-        return int(self.hparams.source_feature_embedding_sizes.split(":")[f_id])
-
-    @property
-    def sfeat_number(self):
-        """number of source features"""
-        return len(self.hparams.source_feature_embedding_sizes.split(":"))
-
-    def bottom(self, features):
-        """Transform features to feed into body.
-
-        ****************add sfeats to inputs****************************
-
-        ****************change id feature to on-hot feature*************************************
-        """
-
-        transformed_features = super(TransformerSrcFeatures, self).bottom(features)
-        _sfeat_number = len([f for f in transformed_features if f.startswith("sfeats") and not f.endswith("_raw")])
-        assert _sfeat_number == self.sfeat_number, \
-            "More source features set in hparams than observed in input: %s" % self.hparams.source_feature_embedding_sizes
-
-        inputs_with_sfeats = transformed_features["inputs"]
-        for f_id in range(self.sfeat_number):
-            inputs_with_sfeats = tf.concat([inputs_with_sfeats, transformed_features["sfeats." + str(f_id)]], 3)
-
-        assert inputs_with_sfeats.shape[-1] == self.hparams.enc_hidden_size
-
-        transformed_features["inputs"] = inputs_with_sfeats
-
-        import pdb
-        pdb.set_trace()
-        return transformed_features
-
-    def shard_sfeatures(self, inputs, features, data_parallelism):
-        """
-        *********used in decode*****************
-
-
-        :param inputs:
-        :param features:
-        :param data_parallelism:
-        :return:
-        """
-        feat_shards = []
-        for inp_shard in inputs:
-            feat_shards.append({"inputs": inp_shard})
-        source_features = {k: v for k, v in features.items() if k.startswith("sfeats")}
-        for feat_name, feature in source_features.items():
-            feature = tf.expand_dims(feature, axis=1)
-            if len(feature.shape) < 5:
-                feature = tf.expand_dims(feature, axis=4)
-            s = common_layers.shape_list(inputs)
-            feature = tf.reshape(feature, [s[0] * s[1], s[2], s[3], s[4]])
-            for ids, feat_shard in enumerate(self._shard_features({feat_name: feature})[feat_name]):
-                feat_shards[ids][feat_name] = feat_shard
-        return data_parallelism(self.concatenate_sfeats, feat_shards)
-
-    def concatenate_sfeats(self, features):
-        """concatenate source embedding and features for decoding"""
-        input_modality = self._problem_hparams.input_modality["inputs"]
-        with tf.variable_scope(input_modality.name):
-            inputs = input_modality.bottom(features["inputs"])
-
-        for idx in range(self.sfeat_number):
-            sfeat = features["sfeats." + str(idx)]
-            input_modality = self._problem_hparams.input_modality["sfeats." + str(idx)]
-            with tf.variable_scope(input_modality.name):
-                sfeat = input_modality.bottom_sfeats(sfeat)
-            inputs = tf.concat([inputs, sfeat], -1)
-
-        return inputs
-
-
-
-@registry.register_hparams
-def transformer_sfeats_hparams():
-  # define initial transformer hparams here
-  hp = transformer.transformer_base()
-  #hp = transformer.transformer_big()
-
-  # feature vector size setting
-  # the order of the features is the same
-  # as in the source feature file. All
-  # sizes are separated by ':'
-  hp.add_hparam("source_feature_embedding_sizes", "16:56:8")
-  # set encoder hidden size
-  ehs = sum([int(size) for size in hp.source_feature_embedding_sizes.split(':')])
-  ehs += hp.hidden_size
-  hp.add_hparam("enc_hidden_size", ehs)
-  return hp
-
-
-class VocabType(object):
-  """Available text vocabularies."""
-  SUBWORD = "subwords"
-  TOKEN = "tokens"
 

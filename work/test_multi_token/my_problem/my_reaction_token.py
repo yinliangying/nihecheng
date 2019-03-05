@@ -79,17 +79,17 @@ import tensorflow as tf
 _ENFR_TRAIN_DATA = [
     [
         "",
-        ("train_sources_10000",
-         "train_targets_10000"),
-        "train_features_10000"
+        ("train_sources",
+         "train_targets"),
+        "train_features"
     ],
 ]
 _ENFR_DEV_DATA = [
     [
         "",
-        ("train_sources_10000",
-         "train_targets_10000"),
-        "train_features_10000"
+        ("train_sources",
+         "train_targets"),
+        "train_features"
     ],
 ]
 
@@ -99,6 +99,26 @@ class VocabType(object):
     """Available text vocabularies."""
     SUBWORD = "subwords"
     TOKEN = "tokens"
+
+
+@registry.register_hparams
+def transformer_sfeats_tiny_hparams():
+  # define initial transformer hparams here
+  hp = transformer.transformer_tiny()
+  #hp = transformer.transformer_big()
+
+  # feature vector size setting
+  # the order of the features is the same
+  # as in the source feature file. All
+  # sizes are separated by ':'
+  hp.add_hparam("source_feature_embedding_sizes", "16:56:8")
+  # set encoder hidden size
+  ehs = sum([int(size) for size in hp.source_feature_embedding_sizes.split(':')])
+  ehs += hp.hidden_size
+  hp.add_hparam("enc_hidden_size", ehs)
+  return hp
+
+
 
 
 @registry.register_problem
@@ -117,7 +137,7 @@ class MyReactionToken(translate_source_features.SourceFeatureProblem):
     @property
     def oov_token(self):
         """Out of vocabulary token. Only for VocabType.TOKEN."""
-        return '<unknown>'
+        return '<UNK>'
 
 
     def get_or_create_vocab(self, data_dir, tmp_dir, force_get=False, file_byte_budget=1e6):

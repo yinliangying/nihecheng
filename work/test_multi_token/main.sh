@@ -9,7 +9,7 @@ PROBLEM=my_reaction_token  #text2text_tmpdir_tokens
 DATA_DIR=${__script_dir}/data_token/
 TRAIN_DIR=${__script_dir}/train_tiny_token/  #transformer_tiny
 DECODE_TO_FILE=${TMP_DIR}/result.txt
-DECODE_FROM_FILE=${TMP_DIR}/train_sources_10000
+DECODE_FROM_FILE=${TMP_DIR}/train_sources
 RESULT_FILE=${TMP_DIR}/result.json
 
 
@@ -18,8 +18,9 @@ RESULT_FILE=${TMP_DIR}/result.json
 
 
 MODEL=transformer_src_features
-HPARAMS_SET=transformer_sfeats_hparams
-DECODE_FEATURE_FROM_FILE=${TMP_DIR}/train_features_10000
+#HPARAMS_SET=transformer_sfeats_hparams
+HPARAMS_SET=transformer_sfeats_tiny_hparams
+DECODE_FEATURE_FROM_FILE=${TMP_DIR}/train_features
 
 
 

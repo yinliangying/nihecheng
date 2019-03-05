@@ -18,7 +18,8 @@ RESULT_FILE=${TMP_DIR}/result.json
 
 
 MODEL=transformer_src_features
-HPARAMS_SET=transformer_sfeats_hparams
+#HPARAMS_SET=transformer_sfeats_hparams
+HPARAMS_SET=transformer_sfeats_tiny_hparams
 DECODE_FEATURE_FROM_FILE=${TMP_DIR}/train_features_10000
 
 

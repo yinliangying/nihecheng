@@ -94,6 +94,24 @@ _ENFR_DEV_DATA = [
 ]
 
 
+@registry.register_hparams
+def transformer_sfeats_tiny_hparams():
+  # define initial transformer hparams here
+  hp = transformer.transformer_tiny()
+  #hp = transformer.transformer_big()
+
+  # feature vector size setting
+  # the order of the features is the same
+  # as in the source feature file. All
+  # sizes are separated by ':'
+  hp.add_hparam("source_feature_embedding_sizes", "16:56:8")
+  # set encoder hidden size
+  ehs = sum([int(size) for size in hp.source_feature_embedding_sizes.split(':')])
+  ehs += hp.hidden_size
+  hp.add_hparam("enc_hidden_size", ehs)
+  return hp
+
+
 
 class VocabType(object):
     """Available text vocabularies."""

@@ -7,14 +7,22 @@ USR_DIR=${__script_dir}/my_problem/
 TMP_DIR=${__script_dir}/tmp/
 PROBLEM=my_reaction_subword  #text2text_tmpdir_tokens
 DATA_DIR=${__script_dir}/data_token/
-MODEL=transformer_src_features
 TRAIN_DIR=${__script_dir}/train_tiny_token/  #transformer_tiny
-HPARAMS_SET=transformer_sfeats_hparams
 DECODE_TO_FILE=${TMP_DIR}/result.txt
-DECODE_FROM_FILE=${TMP_DIR}/test_sources
+DECODE_FROM_FILE=${TMP_DIR}/train_sources_10000
 RESULT_FILE=${TMP_DIR}/result.json
-mkdir -p $DATA_DIR $TMP_DIR $TRAIN_DIR
 
+
+
+
+
+
+MODEL=transformer_src_features
+HPARAMS_SET=transformer_sfeats_hparams
+DECODE_FEATURE_FROM_FILE=${TMP_DIR}/train_features_10000
+
+
+mkdir -p $DATA_DIR $TMP_DIR $TRAIN_DIR
 
 if [ $1 -eq 1 ]; then
     #1.pre-process-data
@@ -58,6 +66,7 @@ elif [ $1 -eq 4 ];then
         --decode_to_file=$DECODE_TO_FILE \
         --hparams_set=$HPARAMS_SET \
         --decode_hparams='alpha=0.6' \
+        --source_feature_file=${TMP_DIR}/train_features_10000
         #--decode_hparams='return_beams=True,beam_size=10' # return topN(N=beam_size) result split by \t for each sample
 
     exit 0

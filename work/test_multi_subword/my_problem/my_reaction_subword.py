@@ -79,17 +79,17 @@ import tensorflow as tf
 _ENFR_TRAIN_DATA = [
     [
         "",
-        ("train_sources_10000",
-         "train_targets_10000"),
-        "train_features_10000"
+        ("train_sources",
+         "train_targets"),
+        "train_features"
     ],
 ]
 _ENFR_DEV_DATA = [
     [
         "",
-        ("train_sources_10000",
-         "train_targets_10000"),
-        "train_features_10000"
+        ("train_sources",
+         "train_targets"),
+        "train_features"
     ],
 ]
 
@@ -126,7 +126,7 @@ class MyReactionSubword(translate_source_features.SourceFeatureProblem):
     def approx_vocab_size(self):
         return 2 ** 9
 
-    @property
+    @property    #filename of subword vocab created automatically
     def vocab_filename(self):
         return "vocab.enfr.%d" % self.approx_vocab_size
 
@@ -166,7 +166,7 @@ class MyReactionSubword(translate_source_features.SourceFeatureProblem):
         """
         return VocabType.SUBWORD
 
-    def vocab_sfeat_filenames(self, f_id):
+    def vocab_sfeat_filenames(self, f_id):   #filename of feature vocab created automatically
         r"""
             reweite the father class
 

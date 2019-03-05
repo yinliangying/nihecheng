@@ -66,7 +66,7 @@ elif [ $1 -eq 4 ];then
         --decode_to_file=$DECODE_TO_FILE \
         --hparams_set=$HPARAMS_SET \
         --decode_hparams='alpha=0.6' \
-        --source_feature_file=${TMP_DIR}/train_features_10000
+        --source_feature_file=${DECODE_FEATURE_FROM_FILE}
         #--decode_hparams='return_beams=True,beam_size=10' # return topN(N=beam_size) result split by \t for each sample
 
     exit 0

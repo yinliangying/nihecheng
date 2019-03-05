@@ -82,6 +82,10 @@ class MyReactionToken(text_problems.Text2TextProblem):
 
   def generate_samples(self, data_dir, tmp_dir, dataset_split):
 
+    """
+    this is wrong code,train set and validation set need to be specified manual
+    
+    """
     # train_file=os.path.join(raw_data_dir, "train_both.txt")
     train_in_file = os.path.join(tmp_dir, "train_sources")
     train_out_file = os.path.join(tmp_dir, "train_targets")

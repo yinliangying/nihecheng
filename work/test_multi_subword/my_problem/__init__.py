@@ -1,1 +1,1 @@
-from . import my_reaction_token
+from . import my_reaction_subword

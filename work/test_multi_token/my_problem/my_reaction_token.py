@@ -111,7 +111,7 @@ def transformer_sfeats_tiny_hparams():
   # the order of the features is the same
   # as in the source feature file. All
   # sizes are separated by ':'
-  hp.add_hparam("source_feature_embedding_sizes", "16:56:8")
+  hp.add_hparam("source_feature_embedding_sizes", "16:16:16:16")
   # set encoder hidden size
   ehs = sum([int(size) for size in hp.source_feature_embedding_sizes.split(':')])
   ehs += hp.hidden_size
@@ -164,7 +164,7 @@ class MyReactionToken(translate_source_features.SourceFeatureProblem):
         all other features and its vector size must
         be set in hparams (source_feature_embedding_sizes).
         """
-        return True
+        return False
 
     @property
     def vocab_type(self):

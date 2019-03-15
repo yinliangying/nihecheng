@@ -4,10 +4,10 @@ __script_dir=$(cd `dirname $0`; pwd)
 cd ${__script_dir}
 SOURCE_DATA_DIR=../../input/competition/
 USR_DIR=${__script_dir}/my_problem/
-TMP_DIR=${__script_dir}/tmp/
+TMP_DIR=${__script_dir}/tmp1/
 PROBLEM=my_reaction_token  #text2text_tmpdir_tokens
 DATA_DIR=${__script_dir}/data_token/
-TRAIN_DIR=${__script_dir}/train_tiny_token/  #transformer_tiny
+TRAIN_DIR=${__script_dir}/train_tiny_token1/  #transformer_tiny
 DECODE_TO_FILE=${TMP_DIR}/result.txt
 DECODE_FROM_FILE=${TMP_DIR}/train_sources
 RESULT_FILE=${TMP_DIR}/result.json
@@ -50,7 +50,8 @@ elif [ $1 -eq 3 ];then
   --output_dir=$TRAIN_DIR\
   --train_steps 1000000\
   --hparams_set=$HPARAMS_SET  \
-  #--hparams='batch_size=4096'\
+  --hparams='learning_rate=2'   \
+  --hparams='batch_size=4096'
   #--hparams='batch_size=4000,num_hidden_layers=4,hidden_size=16,filter_size=16,num_heads=4'
 
     exit 0

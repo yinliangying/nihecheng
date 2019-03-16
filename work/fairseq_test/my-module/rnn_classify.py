@@ -196,8 +196,7 @@ class FairseqRNNClassifier(BaseFairseqModel):
         # mini-batch. We'll define the Task in the next section, but for
         # now just know that *src_tokens* has shape `(batch, src_len)` and
         # *src_lengths* has shape `(batch)`.
-        import pdb
-        pdb.set_trace()
+
         bsz, max_src_len = src_tokens.size()
 
         # Initialize the RNN hidden state. Compared to the original PyTorch

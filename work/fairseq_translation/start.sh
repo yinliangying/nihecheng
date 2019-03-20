@@ -23,9 +23,9 @@ fairseq-train ${DESTDIR} \
   --lr 0.25 --clip-norm 0.1  --dropout 0.2 --max-tokens 4000 \
   --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
   --lr-scheduler fixed --force-anneal 200 \
-  --arch lstm_wiseman_iwslt_de_en --save-dir checkpoints/fconv  --raw-text
+  --arch transformer --save-dir checkpoints/fconv  --raw-text
 
-
+#lstm_wiseman_iwslt_de_en
 '
 # Generate:
 fairseq-generate ${DESTDIR} \
